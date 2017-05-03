@@ -1,4 +1,4 @@
-FROM firstandthird/cronquest:0.4.0
+FROM firstandthird/cronquest:0.5.0
 
 USER root
 RUN apk add --update bash coreutils docker && rm -rf /var/cache/apk/*
