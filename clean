@@ -14,7 +14,7 @@ if [[ -z "$EXCLUDE" ]]; then
 fi
 
 docker ps -a | grep "$SEARCH" | grep -v "$EXCLUDE" | awk '{ print $1 }' \
-  | xargs -n 1 -r docker inspect -f '{{.ID}} {{.State.StartedAt}}' \
+  | xargs -n 1 -r docker inspect -f '{{.ID}} {{.Created}}' \
   | awk '$2 <= "'"$SINCE"'" { print $1 }' \
   | xargs docker stop \
   | xargs docker rm
