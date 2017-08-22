@@ -1,2 +1,2 @@
 # docker-stale
-Remove docker images old than a day
+Remove docker images old than n days (n can be zero)

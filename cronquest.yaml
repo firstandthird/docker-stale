@@ -1,5 +1,0 @@
-jobs:
-  clean:
-    interval: 'at 12:00am'
-    script: '/clean'
-    runNow: true
