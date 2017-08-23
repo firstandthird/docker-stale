@@ -78,7 +78,45 @@ const docker = new Dockerode();
 
 const purge = (argv) => {
   log(`Purging outstanding docker containers at ${new Date()}`);
+  const expirationLimit = argv.days * 24 * 60 * 60 * 1000;
+
   async.autoInject({
+    // in swarm mode, all services are part of the swarm and should be killed first:
+    services(done) {
+      if (!argv.swarm) {
+        return done();
+      }
+      docker.listServices(done);
+    },
+    expiredServices(services, done) {
+      if (!argv.swarm) {
+        return done();
+      }
+      const expiredServices = [];
+      services.forEach((serviceInfo) => {
+        const serviceCreated = (new Date().getTime() - new Date(serviceInfo.CreatedAt).getTime()) / 1000;
+        if (isExpired(expirationLimit, serviceCreated)) {
+          expiredServices.push(docker.getService(serviceInfo.ID));
+        }
+      });
+      return done(null, expiredServices);
+    },
+    removeServices(expiredServices, done) {
+      if (!argv.swarm) {
+        return done();
+      }
+      async.eachSeries(expiredServices, (expired, eachDone) => {
+        expired.remove((err) => {
+          if (err) {
+            log(err);
+          }
+          log(['removed'], { id: expired.Name });
+          eachDone();
+        });
+      }, done);
+    },
+
+    // once services are removed, kill relevant containers:
     list(done) {
       docker.listContainers(done);
     },
@@ -86,7 +124,6 @@ const purge = (argv) => {
       const expiredContainers = [];
       for (let i = 0; i < list.length; i++) {
         const containerInfo = list[i];
-        const expirationLimit = argv.days * 24 * 60 * 60 * 1000;
         if (isExpired(expirationLimit, containerInfo.Created)) {
           expiredContainers.push(containerInfo);
         }
@@ -148,6 +185,8 @@ const purge = (argv) => {
     }
   });
 };
+
+
 if (argv.runNow) {
   purge(argv);
 } else {
