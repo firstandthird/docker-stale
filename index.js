@@ -30,6 +30,22 @@ const argv = require('yargs')
   type: 'boolean',
   alias: 'runNow'
 })
+.option('s', {
+  description: 'swarm mode, when purging a container will also purge any docker services in its swarm',
+  type: 'boolean',
+  default: false,
+  alias: 'swarm'
+})
+.option('I', {
+  description: 'only remove containers matching this (using JS RegEx notation) ',
+  default: false,
+  alias: 'include'
+})
+.option('e', {
+  description: 'do not remove containers matching this (using JS RegEx notation) ',
+  default: false,
+  alias: 'exclude'
+})
 .help('h', 'help')
 .argv;
 
@@ -81,6 +97,24 @@ const purge = (argv) => {
       const allContainers = [];
       expired.forEach((containerInfo) => {
         const container = docker.getContainer(containerInfo.Id);
+        if (argv.exclude) {
+          for (let i = 0; i < containerInfo.Names.length; i++) {
+            const name = containerInfo.Names[i];
+            const match = name.match(argv.exclude);
+            if (match) {
+              return;
+            }
+          }
+        }
+        if (argv.include) {
+          for (let i = 0; i < containerInfo.Names.length; i++) {
+            const name = containerInfo.Names[i];
+            const match = name.match(argv.include);
+            if (!match) {
+              return;
+            }
+          }
+        }
         container.Name = containerInfo.Names;
         allContainers.push(container);
       });
