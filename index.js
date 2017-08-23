@@ -56,7 +56,7 @@ const logOptions = {
 
 const log = Logr.createLogger(logOptions);
 log(`will halt all docker instances older than ${argv.days} days at ${argv.interval}, ${argv.timezone} timezone`);
-const isExpired = (expirationCutoff, containerInfo) => new Date().getTime() - (containerInfo.Created * 1000) > expirationCutoff;
+const isExpired = (expirationCutoff, containerCreated) => new Date().getTime() - (containerCreated * 1000) > expirationCutoff;
 
 const docker = new Dockerode();
 
@@ -71,7 +71,7 @@ const purge = (argv) => {
       for (let i = 0; i < list.length; i++) {
         const containerInfo = list[i];
         const expirationLimit = argv.days * 24 * 60 * 60 * 1000;
-        if (isExpired(expirationLimit, containerInfo)) {
+        if (isExpired(expirationLimit, containerInfo.Created)) {
           expiredContainers.push(containerInfo);
         }
       }
