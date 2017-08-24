@@ -72,119 +72,106 @@ const logOptions = {
 
 const log = Logr.createLogger(logOptions);
 log(`will halt all docker instances older than ${argv.days} days at ${argv.interval}, ${argv.timezone} timezone`);
-const isExpired = (expirationCutoff, containerCreated) => new Date().getTime() - (containerCreated * 1000) > expirationCutoff;
 
 const docker = new Dockerode();
 
+const expirationLimit = argv.days * 24 * 60 * 60 * 1000;
+const isExpired = (containerCreated) => new Date().getTime() - (containerCreated * 1000) > expirationLimit;
+
+const nameMatches = (argv, names) => {
+  if (argv.exclude) {
+    for (let i = 0; i < names.length; i++) {
+      const name = names[i];
+      const match = name.match(argv.exclude);
+      if (match) {
+        return false;
+      }
+    }
+  }
+  if (argv.include) {
+    for (let i = 0; i < names.length; i++) {
+      const name = names[i];
+      const match = name.match(argv.include);
+      if (!match) {
+        return false;
+      }
+    }
+  }
+  return true;
+};
+
+const needsRemoval = (argv, names, created) => {
+  return isExpired(created) && nameMatches(argv, names);
+};
+
+const getServices = require('./lib/services.js').getServices;
+const removeService = require('./lib/services.js').removeService;
+const getContainers = require('./lib/containers.js').getContainers;
+const removeContainer = require('./lib/containers.js').removeContainer;
+
 const purge = (argv) => {
   log(`Purging outstanding docker containers at ${new Date()}`);
-  const expirationLimit = argv.days * 24 * 60 * 60 * 1000;
-
+  const fetcher = argv.swarm ? getServices : getContainers;
+  const remover = argv.swarm ? removeService : removeContainer;
   async.autoInject({
-    // in swarm mode, all services are part of the swarm and should be killed first:
-    services(done) {
-      if (!argv.swarm) {
-        return done();
-      }
-      docker.listServices(done);
+    fetch(done) {
+      fetcher(docker, done);
     },
-    expiredServices(services, done) {
-      if (!argv.swarm) {
-        return done();
-      }
-      const expiredServices = [];
-      services.forEach((serviceInfo) => {
-        const serviceCreated = (new Date().getTime() - new Date(serviceInfo.CreatedAt).getTime()) / 1000;
-        if (isExpired(expirationLimit, serviceCreated)) {
-          expiredServices.push(docker.getService(serviceInfo.ID));
+    filter(fetch, done) {
+      const allItems = [];
+      fetch.forEach((fetchedItem) => {
+        if (needsRemoval(argv, fetchedItem.names)) {
+          allItems.push(fetchedItem);
         }
       });
-      return done(null, expiredServices);
     },
-    removeServices(expiredServices, done) {
-      if (!argv.swarm) {
-        return done();
-      }
-      async.eachSeries(expiredServices, (expired, eachDone) => {
-        expired.remove((err) => {
-          if (err) {
-            log(err);
-          }
-          log(['removed'], { id: expired.Name });
-          eachDone();
-        });
-      }, done);
+    remove(filter, done) {
+      async.eachSeries(filter, remover, done);
     },
-
-    // once services are removed, kill relevant containers:
-    list(done) {
-      docker.listContainers(done);
-    },
-    expired(list, done) {
-      const expiredContainers = [];
-      for (let i = 0; i < list.length; i++) {
-        const containerInfo = list[i];
-        if (isExpired(expirationLimit, containerInfo.Created)) {
-          expiredContainers.push(containerInfo);
-        }
-      }
-      return done(null, expiredContainers);
-    },
-    containers(expired, done) {
-      const allContainers = [];
-      expired.forEach((containerInfo) => {
-        const container = docker.getContainer(containerInfo.Id);
-        if (argv.exclude) {
-          for (let i = 0; i < containerInfo.Names.length; i++) {
-            const name = containerInfo.Names[i];
-            const match = name.match(argv.exclude);
-            if (match) {
-              return;
-            }
-          }
-        }
-        if (argv.include) {
-          for (let i = 0; i < containerInfo.Names.length; i++) {
-            const name = containerInfo.Names[i];
-            const match = name.match(argv.include);
-            if (!match) {
-              return;
-            }
-          }
-        }
-        container.Name = containerInfo.Names;
-        allContainers.push(container);
-      });
-      return done(null, allContainers);
-    },
-    stop(containers, done) {
-      async.eachSeries(containers, (container, eachDone) => {
-        container.stop((err) => {
-          if (err) {
-            log(err);
-          }
-          log(['stopped'], { id: container.Name });
-          eachDone();
-        });
-      }, done);
-    },
-    remove(stop, containers, done) {
-      async.eachSeries(containers, (container, eachDone) => {
-        container.remove((err) => {
-          if (err) {
-            log(err);
-          }
-          log(['removed'], { id: container.Name });
-          eachDone();
-        });
-      }, done);
-    }
   }, (err) => {
     if (err) {
       log(err);
     }
+    console.log('done');
   });
 };
+    //   async.eachSeries(expiredServices, (expired, eachDone) => {
+    //   }, done);
+    // },
+    //
+    // // once services are removed, kill relevant containers:
+    // expired(list, done) {
+    //   const expiredContainers = [];
+    //   for (let i = 0; i < list.length; i++) {
+    //     const containerInfo = list[i];
+    //     if (isExpired(expirationLimit, containerInfo.Created)) {
+    //       expiredContainers.push(containerInfo);
+    //     }
+    //   }
+    //   return done(null, expiredContainers);
+    // },
+    // stop(containers, done) {
+    //   async.eachSeries(containers, (container, eachDone) => {
+    //     container.stop((err) => {
+    //       if (err) {
+    //         log(err);
+    //       }
+    //       log(['stopped'], { id: container.Name });
+    //       eachDone();
+    //     });
+    //   }, done);
+    // },
+    // remove(stop, containers, done) {
+    //   async.eachSeries(containers, (container, eachDone) => {
+    //     container.remove((err) => {
+    //       if (err) {
+    //         log(err);
+    //       }
+    //       log(['removed'], { id: container.Name });
+    //       eachDone();
+    //     });
+    //   }, done);
+    // }
 
 
 if (argv.runNow) {
