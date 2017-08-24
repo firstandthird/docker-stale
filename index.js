@@ -131,44 +131,6 @@ const purge = (argv) => {
     }
   });
 };
-    //   async.eachSeries(expiredServices, (expired, eachDone) => {
-    //   }, done);
-    // },
-    //
-    // // once services are removed, kill relevant containers:
-    // expired(list, done) {
-    //   const expiredContainers = [];
-    //   for (let i = 0; i < list.length; i++) {
-    //     const containerInfo = list[i];
-    //     if (isExpired(expirationLimit, containerInfo.Created)) {
-    //       expiredContainers.push(containerInfo);
-    //     }
-    //   }
-    //   return done(null, expiredContainers);
-    // },
-    // stop(containers, done) {
-    //   async.eachSeries(containers, (container, eachDone) => {
-    //     container.stop((err) => {
-    //       if (err) {
-    //         log(err);
-    //       }
-    //       log(['stopped'], { id: container.Name });
-    //       eachDone();
-    //     });
-    //   }, done);
-    // },
-    // remove(stop, containers, done) {
-    //   async.eachSeries(containers, (container, eachDone) => {
-    //     container.remove((err) => {
-    //       if (err) {
-    //         log(err);
-    //       }
-    //       log(['removed'], { id: container.Name });
-    //       eachDone();
-    //     });
-    //   }, done);
-    // }
-
 
 if (argv.runNow) {
   purge(argv);
