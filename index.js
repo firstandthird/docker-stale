@@ -75,33 +75,27 @@ log(`will halt all docker instances older than ${argv.days} days at ${argv.inter
 
 const docker = new Dockerode();
 
-const expirationLimit = argv.days * 24 * 60 * 60 * 1000;
-const isExpired = (containerCreated) => new Date().getTime() - (containerCreated * 1000) > expirationLimit;
+const expirationLimit = argv.days * 24 * 60 * 60;
+const isExpired = (containerCreated) => containerCreated > expirationLimit;
 
-const nameMatches = (argv, names) => {
+const nameMatches = (argv, name) => {
   if (argv.exclude) {
-    for (let i = 0; i < names.length; i++) {
-      const name = names[i];
-      const match = name.match(argv.exclude);
-      if (match) {
-        return false;
-      }
+    const match = name.match(argv.exclude);
+    if (match) {
+      return false;
     }
   }
   if (argv.include) {
-    for (let i = 0; i < names.length; i++) {
-      const name = names[i];
-      const match = name.match(argv.include);
-      if (!match) {
-        return false;
-      }
+    const match = name.match(argv.include);
+    if (!match) {
+      return false;
     }
   }
   return true;
 };
 
-const needsRemoval = (argv, names, created) => {
-  return isExpired(created) && nameMatches(argv, names);
+const needsRemoval = (argv, name, created) => {
+  return isExpired(created) && nameMatches(argv, name);
 };
 
 const getServices = require('./lib/services.js').getServices;
@@ -120,19 +114,21 @@ const purge = (argv) => {
     filter(fetch, done) {
       const allItems = [];
       fetch.forEach((fetchedItem) => {
-        if (needsRemoval(argv, fetchedItem.names)) {
+        if (needsRemoval(argv, fetchedItem.name, fetchedItem.created)) {
           allItems.push(fetchedItem);
         }
       });
+      done(null, allItems);
     },
     remove(filter, done) {
-      async.eachSeries(filter, remover, done);
+      async.eachSeries(filter, (item, eachDone) => {
+        remover(log, item, eachDone);
+      }, done);
     },
   }, (err) => {
     if (err) {
       log(err);
     }
-    console.log('done');
   });
 };
     //   async.eachSeries(expiredServices, (expired, eachDone) => {
