@@ -5,5 +5,4 @@ app:
     EXCLUDE:
   volumes:
     - '/var/run/docker.sock:/var/run/docker.sock'
-    - './cronquest.yaml:/cronquest.yaml'
-    - './clean:/clean'
+    - './index.js:/index.js'

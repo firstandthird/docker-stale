@@ -1,0 +1,30 @@
+{
+  "name": "docker-stale",
+  "version": "2.0",
+  "description": "clean docker instances started after the specified date",
+  "main": "index.js",
+  "directories": {},
+  "scripts": {
+    "start": "node index.js",
+    "test": "tap test"
+  },
+  "author": "First+Third",
+  "license": "MIT",
+  "eslintConfig": {
+    "extends": "firstandthird"
+  },
+  "devDependencies": {
+    "eslint": "^3.9.1",
+    "eslint-config-firstandthird": "^3.2.0",
+    "eslint-plugin-import": "^2.1.0"
+  },
+  "dependencies": {
+    "async": "^2.5.0",
+    "dockerode": "^2.5.0",
+    "later": "^1.2.0",
+    "later-timezone": "^1.0.0",
+    "logr": "^2.2.0",
+    "logr-flat": "^2.0.0",
+    "yargs": "^8.0.2"
+  }
+}
